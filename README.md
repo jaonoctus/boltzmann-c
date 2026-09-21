@@ -29,6 +29,7 @@ linux/arm64 and linux/arm/v7:
 ```
 docker run --rm jaonoctus/ludwig --txids=<txid>
 docker run --rm -v "$PWD:/data" jaonoctus/ludwig --file=/data/tx.json
+curl -s https://mempool.space/api/tx/<txid> | docker run --rm -i jaonoctus/ludwig --file=-
 ```
 
 To build it yourself:
@@ -53,8 +54,21 @@ Same flags as the reference's `ludwig.py`, plus `--mempool` and `--file`:
 ./ludwig --blockstream --testnet --txids=<txid>
 ./ludwig --rpc --txids=<txid>          # BOLTZMANN_RPC_{USERNAME,PASSWORD,HOST,PORT}
 ./ludwig --file=tx.json                 # blockchain.info or Esplora JSON, offline
+curl -s https://mempool.space/api/tx/<txid> | ./ludwig --file=-    # same, from a pipe
 ./ludwig --options=PRECHECK,LINKABILITY,MERGE_INPUTS --maxnbtxos=12 --duration=600 --cjmaxfeeratio=0.005 --txids=...
 ```
+
+A made-up transaction can be piped in the same way. Only the values and
+addresses matter; the other fields are there because the blockchain.info
+parser expects them. Inputs 2 and 3 paying outputs 4 and 1:
+
+```
+echo '{"hash":"2341","block_height":1,"time":1,"inputs":[{"prev_out":{"n":0,"value":2,"addr":"a","tx_index":1}},{"prev_out":{"n":1,"value":3,"addr":"b","tx_index":2}}],"out":[{"n":0,"value":4,"addr":"A","tx_index":3},{"n":1,"value":1,"addr":"B","tx_index":3}]}' | ./ludwig --file=-
+```
+
+Neither input can pay either output on its own, so there is a single
+combination, 0 bits of entropy, and every input is deterministically linked
+to every output.
 
 Data sources: blockchain.info (default), Blockstream (`-b`), mempool.space
 (`-m`), a local bitcoind (`-p`, needs `txindex=1`), or a JSON file (`-f`).

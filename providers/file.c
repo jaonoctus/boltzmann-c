@@ -1,6 +1,7 @@
 /*
  * A transaction read from a local JSON file, in either the blockchain.info
  * or the Esplora format.  Handy for offline analysis and for testing.
+ * The path "-" reads standard input, so a fetch can be piped straight in.
  */
 #include "common/utils.h"
 #include "providers/provider.h"
@@ -11,7 +12,8 @@
 
 static char *read_file(const tal_t *ctx, const char *path, char **err)
 {
-	FILE *f = fopen(path, "rb");
+	bool is_stdin = streq(path, "-");
+	FILE *f = is_stdin ? stdin : fopen(path, "rb");
 	char *data = tal_arr(ctx, char, 0);
 	char buf[4096];
 	size_t n;
@@ -26,7 +28,8 @@ static char *read_file(const tal_t *ctx, const char *path, char **err)
 		tal_resize(&data, old + n);
 		memcpy(data + old, buf, n);
 	}
-	fclose(f);
+	if (!is_stdin)
+		fclose(f);
 	tal_resize(&data, tal_count(data) + 1);
 	data[tal_count(data) - 1] = '\0';
 	return data;
@@ -44,6 +47,10 @@ static struct transaction *file_get_tx(const tal_t *ctx,
 	text = read_file(ctx, provider->path, err);
 	if (!text)
 		return NULL;
+	if (text[strspn(text, " \t\r\n")] == '\0') {
+		*err = tal_fmt(ctx, "%s: no input", provider->path);
+		return tal_free(text);
+	}
 	json = json_parse(ctx, text, err);
 	tal_free(text);
 	if (!json)
@@ -67,7 +74,7 @@ struct blockchain_provider *file_provider(const tal_t *ctx, const char *path)
 {
 	struct blockchain_provider *p = talz(ctx, struct blockchain_provider);
 
-	p->description = "local file";
+	p->description = streq(path, "-") ? "standard input" : "local file";
 	p->get_tx = file_get_tx;
 	p->path = tal_strdup(p, path);
 	return p;

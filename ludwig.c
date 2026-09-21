@@ -35,7 +35,7 @@ static void usage(void)
 	       "[-m OR --mempool] = Use mempool.space as source of blockchain data\n"
 	       "\n"
 	       "[-f OR --file] = Read the transaction from a local JSON file\n"
-	       "                 (blockchain.info or Esplora format)\n"
+	       "                 (blockchain.info or Esplora format); \"-\" reads stdin\n"
 	       "\n"
 	       "[-d OR --duration] = Maximum number of seconds allocated to the processing of a single transaction. Default value is 600\n"
 	       "\n"
@@ -118,6 +118,7 @@ int main(int argc, char *argv[])
 	bool rpc = false, testnet = false, blockstream = false, mempool = false;
 	const char *file = NULL;
 	struct blockchain_provider *provider;
+	struct transaction *prefetched = NULL;
 	size_t i;
 	int c;
 
@@ -176,15 +177,16 @@ int main(int argc, char *argv[])
 	else
 		provider = blockchain_info_provider(ctx);
 
-	/* A file holds one transaction; its txid is inside. */
+	/* A file holds one transaction; its txid is inside.  Keep the
+	 * transaction: stdin cannot be read twice.
+	 */
 	if (file && tal_count(txids) == 0) {
 		char *err = NULL;
-		struct transaction *tx = provider->get_tx(ctx, provider, "", !testnet, &err);
 
-		if (!tx)
+		prefetched = provider->get_tx(ctx, provider, "", !testnet, &err);
+		if (!prefetched)
 			die("%s", err);
-		tal_arr_expand(&txids, tal_strdup(txids, tx->txid));
-		tal_free(tx);
+		tal_arr_expand(&txids, tal_strdup(txids, prefetched->txid));
 	}
 
 	printf("DEBUG: Using %s\n", provider->description);
@@ -196,7 +198,13 @@ int main(int argc, char *argv[])
 		struct tx_analysis *an;
 
 		printf("\n\n--- %s -------------------------------------\n", txids[i]);
-		tx = provider->get_tx(tx_ctx, provider, txids[i], !testnet, &err);
+		if (prefetched) {
+			tx = tal_steal(tx_ctx, prefetched);
+			prefetched = NULL;
+		} else {
+			tx = provider->get_tx(tx_ctx, provider, txids[i],
+					      !testnet, &err);
+		}
 		if (!tx) {
 			printf("Unable to retrieve information for %s from %s: %s\n",
 			       txids[i], provider->description, err);
