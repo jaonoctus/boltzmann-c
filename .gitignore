@@ -1,0 +1,13 @@
+# Build artifacts
+*.o
+ludwig
+tests/run-linker
+tests/run-pyfmt
+*.dSYM/
+
+# Python
+__pycache__/
+*.pyc
+
+# IDE
+.idea/

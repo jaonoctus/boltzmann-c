@@ -1,0 +1,18 @@
+# docker compose run --rm ludwig ...      pulls jaonoctus/ludwig from Docker Hub
+# docker compose build                    or rebuild it locally under the same name
+# docker compose run --rm ludwig --txids=<txid>
+# docker compose run --rm ludwig --file=/data/tx.json   (./ is mounted at /data)
+#
+# The bitcoind provider (--rpc) reads BOLTZMANN_RPC_* from the environment;
+# set them in a .env file next to this one, or pass -e on the command line.
+services:
+  ludwig:
+    build: .
+    image: jaonoctus/ludwig
+    volumes:
+      - .:/data
+    environment:
+      - BOLTZMANN_RPC_USERNAME
+      - BOLTZMANN_RPC_PASSWORD
+      - BOLTZMANN_RPC_HOST
+      - BOLTZMANN_RPC_PORT

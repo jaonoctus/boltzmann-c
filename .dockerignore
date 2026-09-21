@@ -1,0 +1,9 @@
+.git
+.idea
+*.o
+*.dSYM
+ludwig
+tests/run-linker
+tests/run-pyfmt
+__pycache__
+*.pyc
