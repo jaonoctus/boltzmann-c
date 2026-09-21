@@ -30,7 +30,8 @@ PROVIDER_SRCS := \
 	providers/blockchain_info.c \
 	providers/esplora.c \
 	providers/bitcoind_rpc.c \
-	providers/file.c
+	providers/file.c \
+	providers/inline.c
 
 LIB_SRCS := $(COMMON_SRCS) $(BOLTZMANN_SRCS) $(PROVIDER_SRCS)
 LIB_OBJS := $(LIB_SRCS:.c=.o)

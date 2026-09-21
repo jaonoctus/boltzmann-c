@@ -19,6 +19,7 @@
 static void usage(void)
 {
 	printf("ludwig [--rpc] [--testnet] [--blockstream] [--mempool] [--file=PATH]\n"
+	       "       [--inputs=AMOUNTS --outputs=AMOUNTS]\n"
 	       "       [--duration=600] [--maxnbtxos=12] [--cjmaxfeeratio=0]\n"
 	       "       [--options=PRECHECK,LINKABILITY,MERGE_FEES,MERGE_INPUTS,MERGE_OUTPUTS]\n"
 	       "       [--txids=8e56317360a548e8ef28ec475878ef70d1371bee3526c017ac22ad61ae5740b8,...]\n"
@@ -36,6 +37,11 @@ static void usage(void)
 	       "\n"
 	       "[-f OR --file] = Read the transaction from a local JSON file\n"
 	       "                 (blockchain.info or Esplora format); \"-\" reads stdin\n"
+	       "\n"
+	       "[--inputs=AMOUNTS --outputs=AMOUNTS] = Analyse a made-up transaction given inline.\n"
+	       "                 Comma-separated amounts in satoshis, each optionally LABEL:AMOUNT;\n"
+	       "                 e.g. --inputs=2,3 --outputs=4,1 or --inputs=a:5,a:5 --outputs=8,2.\n"
+	       "                 Unlabelled inputs are a, b, c... and outputs A, B, C...\n"
 	       "\n"
 	       "[-d OR --duration] = Maximum number of seconds allocated to the processing of a single transaction. Default value is 600\n"
 	       "\n"
@@ -93,6 +99,12 @@ static const char **parse_txids(const tal_t *ctx, const char *list)
 	return txids;
 }
 
+/* Long-only options, above the range of single characters. */
+enum {
+	OPT_INPUTS = 256,
+	OPT_OUTPUTS,
+};
+
 int main(int argc, char *argv[])
 {
 	static const struct option long_opts[] = {
@@ -103,6 +115,8 @@ int main(int argc, char *argv[])
 		{ "blockstream", no_argument, NULL, 'b' },
 		{ "mempool", no_argument, NULL, 'm' },
 		{ "file", required_argument, NULL, 'f' },
+		{ "inputs", required_argument, NULL, OPT_INPUTS },
+		{ "outputs", required_argument, NULL, OPT_OUTPUTS },
 		{ "txids", required_argument, NULL, 't' },
 		{ "duration", required_argument, NULL, 'd' },
 		{ "options", required_argument, NULL, 'o' },
@@ -116,7 +130,7 @@ int main(int argc, char *argv[])
 	double max_duration = 600, max_cj_intrafees_ratio = 0;
 	size_t max_txos = 12;
 	bool rpc = false, testnet = false, blockstream = false, mempool = false;
-	const char *file = NULL;
+	const char *file = NULL, *inputs = NULL, *outputs = NULL;
 	struct blockchain_provider *provider;
 	struct transaction *prefetched = NULL;
 	size_t i;
@@ -145,6 +159,12 @@ int main(int argc, char *argv[])
 		case 'f':
 			file = optarg;
 			break;
+		case OPT_INPUTS:
+			inputs = optarg;
+			break;
+		case OPT_OUTPUTS:
+			outputs = optarg;
+			break;
 		case 't':
 			txids = parse_txids(ctx, optarg);
 			break;
@@ -166,7 +186,14 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (file)
+	if ((inputs == NULL) != (outputs == NULL))
+		die("--inputs and --outputs go together");
+	if (inputs && file)
+		die("--file and --inputs/--outputs are exclusive");
+
+	if (inputs)
+		provider = inline_provider(ctx, inputs, outputs);
+	else if (file)
 		provider = file_provider(ctx, file);
 	else if (rpc)
 		provider = bitcoind_rpc_provider(ctx);
@@ -177,10 +204,10 @@ int main(int argc, char *argv[])
 	else
 		provider = blockchain_info_provider(ctx);
 
-	/* A file holds one transaction; its txid is inside.  Keep the
-	 * transaction: stdin cannot be read twice.
+	/* A file or an inline spec holds one transaction; its txid is
+	 * inside.  Keep the transaction: stdin cannot be read twice.
 	 */
-	if (file && tal_count(txids) == 0) {
+	if ((file || inputs) && tal_count(txids) == 0) {
 		char *err = NULL;
 
 		prefetched = provider->get_tx(ctx, provider, "", !testnet, &err);

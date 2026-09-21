@@ -46,7 +46,8 @@ and CA certificates, about 23 MB. The build stage also runs `make check`.
 
 ## Usage
 
-Same flags as the reference's `ludwig.py`, plus `--mempool` and `--file`:
+Same flags as the reference's `ludwig.py`, plus `--mempool`, `--file` and
+`--inputs`/`--outputs`:
 
 ```
 ./ludwig --txids=8e56317360a548e8ef28ec475878ef70d1371bee3526c017ac22ad61ae5740b8
@@ -55,6 +56,7 @@ Same flags as the reference's `ludwig.py`, plus `--mempool` and `--file`:
 ./ludwig --rpc --txids=<txid>          # BOLTZMANN_RPC_{USERNAME,PASSWORD,HOST,PORT}
 ./ludwig --file=tx.json                 # blockchain.info or Esplora JSON, offline
 curl -s https://mempool.space/api/tx/<txid> | ./ludwig --file=-    # same, from a pipe
+./ludwig --inputs=2,3 --outputs=4,1     # a made-up transaction, nothing fetched
 ./ludwig --options=PRECHECK,LINKABILITY,MERGE_INPUTS --maxnbtxos=12 --duration=600 --cjmaxfeeratio=0.005 --txids=...
 ```
 
@@ -70,8 +72,22 @@ Neither input can pay either output on its own, so there is a single
 combination, 0 bits of entropy, and every input is deterministically linked
 to every output.
 
+`--inputs` and `--outputs` say the same thing without the JSON. Amounts are
+satoshis, comma-separated, each optionally `LABEL:AMOUNT`; unlabelled
+inputs are called a, b, c... and outputs A, B, C... Repeating a label is
+address reuse, which `MERGE_INPUTS` then packs:
+
+```
+./ludwig --inputs=2,3 --outputs=4,1              # 1 combination, 0 bits
+./ludwig --inputs=49,1 --outputs=49,1            # 2 combinations, 1 bit
+./ludwig --inputs=10,10 --outputs=8,2,7,3        # 3 combinations, 1.58 bits
+./ludwig --inputs=a:5,a:5 --outputs=5,5          # 1 combination: same address, merged
+./ludwig --inputs=a:5,a:5 --outputs=5,5 --options=PRECHECK,LINKABILITY   # 3 combinations
+```
+
 Data sources: blockchain.info (default), Blockstream (`-b`), mempool.space
-(`-m`), a local bitcoind (`-p`, needs `txindex=1`), or a JSON file (`-f`).
+(`-m`), a local bitcoind (`-p`, needs `txindex=1`), a JSON file (`-f`), or
+amounts given inline (`--inputs`/`--outputs`).
 Smartbit is gone, so `--smartbit` now says so and exits.
 
 Run `./ludwig --help` for the full option list.
@@ -121,7 +137,8 @@ providers/
   blockchain_info.c        https://blockchain.info/rawtx/<txid>
   esplora.c                Blockstream and mempool.space (same API)
   bitcoind_rpc.c           getrawtransaction, one extra lookup per input
-  file.c                   a JSON file in either of the two formats
+  file.c                   a JSON file in either of the two formats, or stdin
+  inline.c                 --inputs/--outputs: a made-up transaction
 common/
   tal.[ch]                 hierarchical allocator (subset of ccan/tal)
   u64map.[ch]              small hash map, used for the link counters

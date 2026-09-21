@@ -26,6 +26,8 @@ struct blockchain_provider {
 	/* Provider-specific configuration. */
 	const char *base_url;		/* esplora: API root */
 	const char *path;		/* file: path to read */
+	const char *inputs;		/* inline: "AMOUNT|LABEL:AMOUNT,..." */
+	const char *outputs;		/* inline: same, for the outputs */
 };
 
 /* HTTP timeout used by every remote provider, as in the reference. */
@@ -37,6 +39,9 @@ struct blockchain_provider *blockstream_provider(const tal_t *ctx);
 struct blockchain_provider *mempool_space_provider(const tal_t *ctx);
 struct blockchain_provider *bitcoind_rpc_provider(const tal_t *ctx);
 struct blockchain_provider *file_provider(const tal_t *ctx, const char *path);
+struct blockchain_provider *inline_provider(const tal_t *ctx,
+					    const char *inputs,
+					    const char *outputs);
 
 /*
  * JSON translators, shared with the file provider which accepts any of
