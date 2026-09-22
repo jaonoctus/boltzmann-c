@@ -152,6 +152,8 @@ tests/
   compare_with_python.sh   random transactions, every option, diff vs Python
   compare_numpy_print.sh   random matrices, diff vs numpy
   gen_tx.py, python_ludwig_file.py   helpers for the above
+spec/
+  00-introduction.md ...   what the output must be, part by part, with test vectors
 ```
 
 ## How the analysis works
